@@ -1,0 +1,217 @@
+<header>
+  <div class="brand">
+    <span class="mark">C</span>
+    <div>
+      <strong>APAC Claims Hub</strong
+      ><small>Claim lifecycle & liability intelligence</small>
+    </div>
+  </div>
+  <div *ngIf="auth.user()" class="user">
+    <span>{{ auth.user()?.username }} · {{ auth.user()?.role }}</span
+    ><button class="secondary" (click)="logout()">Sign out</button>
+  </div>
+</header>
+<main>
+  <section *ngIf="!auth.user()" class="login panel">
+    <div class="eyebrow">DEMONSTRATION ENVIRONMENT</div>
+    <h1>Welcome to Claims Hub</h1>
+    <p>
+      Sign in as a claimant or claims officer to explore a role-specific
+      workflow.
+    </p>
+    <form (ngSubmit)="login()">
+      <label
+        >Username<input
+          name="username"
+          [(ngModel)]="username"
+          required /></label
+      ><label
+        >Password<input
+          name="password"
+          [(ngModel)]="password"
+          type="password"
+          required /></label
+      ><button type="submit">Sign in</button>
+    </form>
+    <p class="hint">Try claimant1 / demo123 or officer1 / demo123</p>
+  </section>
+  <ng-container *ngIf="auth.user()">
+    <div class="hero">
+      <div>
+        <div class="eyebrow">CHUBB APAC · ENGINEERING DEMO</div>
+        <h1>{{ staff ? "Claims operations" : "Your claims" }}</h1>
+        <p>
+          {{
+            staff
+              ? "Review incoming work, progress claims, and monitor outstanding liability."
+              : "Report incidents, see claim status, and answer follow-up requests."
+          }}
+        </p>
+      </div>
+      <button class="secondary" (click)="refresh()">Refresh data</button>
+    </div>
+    <section class="stats" *ngIf="staff && dashboard">
+      <div class="stat">
+        <span>New</span><strong>{{ dashboard.submitted }}</strong>
+      </div>
+      <div class="stat">
+        <span>In review</span><strong>{{ dashboard.inReview }}</strong>
+      </div>
+      <div class="stat">
+        <span>Waiting on claimant</span
+        ><strong>{{ dashboard.awaitingInfo }}</strong>
+      </div>
+      <div class="stat">
+        <span>Approved</span><strong>{{ dashboard.approved }}</strong>
+      </div>
+    </section>
+    <section class="panel" *ngIf="staff && dashboard">
+      <div class="section-head">
+        <h2>Outstanding exposure</h2>
+        <span>Not FX-converted · excludes rejected & settled</span>
+      </div>
+      <div class="exposures">
+        <div *ngFor="let e of dashboard.exposure" class="exposure">
+          <span>{{ e.market }} · {{ e.currency }}</span
+          ><strong>{{ e.amount | number: "1.2-2" }}</strong
+          ><small>{{ e.outstandingCount }} open claims</small>
+        </div>
+        <p *ngIf="!dashboard.exposure.length">No outstanding claims</p>
+      </div>
+    </section>
+    <section class="panel" *ngIf="!staff">
+      <h2>Report an incident</h2>
+      <form class="claim-form" (ngSubmit)="submit()">
+        <label
+          >Claim type<select [(ngModel)]="type" name="type">
+            <option value="MOTOR">Motor</option>
+            <option value="PROPERTY">Property</option>
+          </select></label
+        ><label
+          >Market<select [(ngModel)]="market" name="market">
+            <option
+              *ngFor="let m of ['AU', 'SG', 'HK', 'MY', 'TH', 'VN']"
+              [value]="m"
+            >
+              {{ m }}
+            </option>
+          </select></label
+        ><label
+          >Estimated amount (local currency)<input
+            [(ngModel)]="amount"
+            name="amount"
+            type="number"
+            min="0.01"
+            step="0.01"
+            required /></label
+        ><label class="full"
+          >Incident description<textarea
+            [(ngModel)]="description"
+            name="description"
+            rows="3"
+            maxlength="2000"
+            required
+          ></textarea></label
+        ><button [disabled]="busy" type="submit">Submit claim</button>
+      </form>
+    </section>
+    <section class="panel">
+      <div class="section-head">
+        <h2>{{ staff ? "Team claim queue" : "Claim history" }}</h2>
+        <span>{{ claims.length }} claims</span>
+      </div>
+      <div class="empty" *ngIf="!claims.length">
+        No claims yet.
+        {{
+          staff
+            ? "Ask a claimant to submit one."
+            : "Submit an incident above to get started."
+        }}
+      </div>
+      <div class="claims">
+        <article class="claim" *ngFor="let c of claims">
+          <div class="claim-top">
+            <div>
+              <span class="eyebrow"
+                >{{ c.type }} · {{ c.market }} · {{ c.currency }}</span
+              >
+              <h3>{{ c.description }}</h3>
+              <small
+                >Claim {{ c.id.slice(0, 8) }} ·
+                {{ c.createdAt | date: "medium" }}</small
+              >
+            </div>
+            <span class="status" [ngClass]="c.status.toLowerCase()">{{
+              c.status.replace("_", " ")
+            }}</span>
+          </div>
+          <div class="claim-meta">
+            <span
+              ><b>Estimate:</b> {{ c.estimatedAmount | number: "1.2-2" }}
+              {{ c.currency }}</span
+            ><span *ngIf="staff"><b>Claimant:</b> {{ c.claimantUsername }}</span
+            ><span
+              ><b>Officer:</b> {{ c.assignedOfficer || "Unassigned" }}</span
+            >
+          </div>
+          <p class="callout" *ngIf="c.informationRequest">
+            Information requested: {{ c.informationRequest }}
+          </p>
+          <p class="callout" *ngIf="c.additionalInformation">
+            Claimant response: {{ c.additionalInformation }}
+          </p>
+          <p class="callout" *ngIf="c.decisionReason">
+            Decision: {{ c.decisionReason }}
+          </p>
+          <div class="actions">
+            <ng-container *ngIf="staff"
+              ><button
+                *ngIf="c.status === 'SUBMITTED'"
+                [disabled]="busy"
+                (click)="assign(c)"
+              >
+                Pick up claim</button
+              ><ng-container *ngIf="c.assignedOfficer === auth.user()?.username"
+                ><button
+                  class="secondary"
+                  *ngIf="c.status === 'IN_REVIEW'"
+                  [disabled]="busy"
+                  (click)="request(c)"
+                >
+                  Request info</button
+                ><button
+                  *ngIf="c.status === 'IN_REVIEW'"
+                  [disabled]="busy"
+                  (click)="decision(c, true)"
+                >
+                  Approve</button
+                ><button
+                  class="danger"
+                  *ngIf="c.status === 'IN_REVIEW'"
+                  [disabled]="busy"
+                  (click)="decision(c, false)"
+                >
+                  Reject</button
+                ><button
+                  *ngIf="c.status === 'APPROVED'"
+                  [disabled]="busy"
+                  (click)="settle(c)"
+                >
+                  Mark settled
+                </button></ng-container
+              ></ng-container
+            ><button
+              *ngIf="!staff && c.status === 'INFO_REQUESTED'"
+              [disabled]="busy"
+              (click)="provide(c)"
+            >
+              Provide information
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+  </ng-container>
+  <p class="error" role="alert" *ngIf="error">{{ error }}</p>
+</main>
+<footer>Engineering assessment demo · Not a production insurance system</footer>

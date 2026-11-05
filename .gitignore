@@ -1,0 +1,24 @@
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.iml
+# Java build
+**/target/
+*.class
+# Node / Angular
+**/node_modules/
+**/dist/
+**/.angular/
+**/coverage/
+# local secrets / env
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+# logs
+*.log
+# temporary
+*.tmp
+*.swp
